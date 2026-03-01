@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GreenPrompt Dashboard</title>
+
+<script src="chart.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green:        #4ade80;
+    --green-dark:   #166534;
+    --green-mid:    #16a34a;
+    --green-dim:    rgba(74, 222, 128, 0.08);
+    --green-glow:   rgba(74, 222, 128, 0.15);
+    --green-border: rgba(74, 222, 128, 0.18);
+    --bg:           #060d08;
+    --bg2:          #0a1510;
+    --bg3:          #0d1d13;
+    --text:         #d1fae5;
+    --muted:        #52685a;
+    --amber:        #fbbf24;
+    --amber-dim:    rgba(251, 191, 36, 0.1);
+    --violet:       #a78bfa;
+    --violet-dim:   rgba(167, 139, 250, 0.1);
+  }
+
+  html { font-size: 14px; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Courier New', Courier, monospace;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  /* Noise texture overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .site-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    gap: 20px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand-icon {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, var(--green-dark), var(--green));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    box-shadow: 0 0 32px rgba(74, 222, 128, 0.2);
+  }
+
+  .brand-name {
+    font-family: Georgia, serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #ecfdf5;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+
+  .brand-tagline {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 0.04em;
+  }
+
+  .header-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .badge {
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+
+  .badge-green {
+    background: var(--green-dim);
+    border: 1px solid var(--green-border);
+    color: var(--green);
+  }
+
+  .badge-amber {
+    background: var(--amber-dim);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    color: var(--amber);
+  }
+
+  .badge-violet {
+    background: var(--violet-dim);
+    border: 1px solid rgba(167, 139, 250, 0.2);
+    color: var(--violet);
+  }
+
+  /* XP Progress */
+  .xp-bar-wrap {
+    margin-bottom: 36px;
+    padding: 20px 24px;
+    background: var(--bg2);
+    border: 1px solid var(--green-border);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .xp-level {
+    width: 54px;
+    height: 54px;
+    background: linear-gradient(135deg, var(--green-dark), var(--green-mid));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Georgia, serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 0 24px rgba(74, 222, 128, 0.25);
+  }
+
+  .xp-info { flex: 1; }
+
+  .xp-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+
+  .xp-progress {
+    height: 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 100px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+
+  .xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green-dark), var(--green));
+    border-radius: 100px;
+    transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+  }
+
+  .xp-numbers { font-size: 12px; color: var(--green); }
+
+  .xp-title {
+    text-align: right;
+    font-family: Georgia, serif;
+    font-size: 14px;
+    font-style: italic;
+    color: #6ee7b7;
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+
+  .stat-tile {
+    background: var(--bg2);
+    border: 1px solid var(--green-border);
+    border-radius: 14px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-tile::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--green), transparent);
+    opacity: 0.5;
+  }
+
+  .stat-tile-icon { font-size: 22px; margin-bottom: 8px; }
+  .stat-tile-value {
+    font-family: Georgia, serif;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--green);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  .stat-tile-unit {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-top: 2px;
+  }
+
+  .stat-tile-label {
+    font-size: 11px;
+    color: #6ee7b7;
+    margin-top: 4px;
+  }
+
+  /* Chart grid */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .chart-card {
+    background: var(--bg2);
+    border: 1px solid var(--green-border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+
+  .chart-card-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chart-canvas-wrap {
+    position: relative;
+    height: 180px;
+  }
+
+  /* Platform breakdown */
+  .platform-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .platform-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .platform-name { flex: 1; font-size: 12px; color: var(--text); }
+  .platform-bar-wrap { flex: 2; height: 6px; background: rgba(255,255,255,0.06); border-radius: 100px; overflow: hidden; }
+  .platform-bar { height: 100%; border-radius: 100px; background: var(--green); }
+  .platform-pct { font-size: 11px; color: var(--muted); width: 32px; text-align: right; }
+
+  /* Achievements grid */
+  .achieve-section { margin-bottom: 24px; }
+
+  .section-title {
+    font-family: Georgia, serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: #ecfdf5;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+  }
+
+  .achievement-card {
+    background: var(--bg2);
+    border: 1px solid var(--green-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .achievement-card.locked {
+    border-color: rgba(255,255,255,0.06);
+    opacity: 0.5;
+    filter: grayscale(0.8);
+  }
+
+  .achievement-emoji { font-size: 24px; }
+
+  .achievement-info {}
+  .achievement-name { font-size: 12px; font-weight: 500; color: var(--text); }
+  .achievement-desc { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+  /* Tips section */
+  .tips-section { margin-bottom: 24px; }
+
+  .tips-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+  }
+
+  .tip-card {
+    background: var(--bg2);
+    border: 1px solid rgba(251,191,36,0.15);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .tip-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .tip-content { font-size: 12px; color: #fde68a; line-height: 1.5; }
+
+  /* Equivalents */
+  .equiv-section { margin-bottom: 32px; }
+
+  .equiv-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .equiv-card {
+    background: var(--bg2);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .equiv-emoji { font-size: 28px; margin-bottom: 6px; }
+  .equiv-value { font-family: Georgia, serif; font-size: 20px; font-weight: 700; color: var(--green); margin-bottom: 4px; }
+  .equiv-label { font-size: 10px; color: var(--muted); line-height: 1.4; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 20px 0;
+    font-size: 10px;
+    color: var(--muted);
+    border-top: 1px solid rgba(255,255,255,0.04);
+    line-height: 1.8;
+  }
+
+  .footer a { color: var(--green); text-decoration: none; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .chart-grid { grid-template-columns: 1fr; }
+    .equiv-cards { grid-template-columns: 1fr 1fr; }
+    .site-header { flex-direction: column; }
+    .header-badges { justify-content: flex-start; }
+  }
+
+  .no-data {
+    text-align: center;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="brand">
+      <div class="brand-icon">🌿</div>
+      <div>
+        <div class="brand-name">GreenPrompt</div>
+        <div class="brand-tagline">Responsible AI Footprint Coach</div>
+      </div>
+    </div>
+    <div class="header-badges">
+      <div class="badge badge-green" id="streak-badge">🔥 0-day streak</div>
+      <div class="badge badge-violet" id="level-badge">⚡ Lv.1 Eco Seedling</div>
+      <div class="badge badge-amber">🔒 Privacy-first · Local only</div>
+    </div>
+  </header>
+
+  <!-- XP Bar -->
+  <div class="xp-bar-wrap">
+    <div class="xp-level" id="xp-level-num">1</div>
+    <div class="xp-info">
+      <div class="xp-label">Experience Points</div>
+      <div class="xp-progress"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
+      <div class="xp-numbers" id="xp-numbers">0 / 100 XP</div>
+    </div>
+    <div class="xp-title" id="level-title">Eco Seedling</div>
+  </div>
+
+  <!-- Stats tiles -->
+  <div class="stats-row">
+    <div class="stat-tile">
+      <div class="stat-tile-icon">💨</div>
+      <div class="stat-tile-value" id="total-co2">0.0</div>
+      <div class="stat-tile-unit">g CO₂ total</div>
+      <div class="stat-tile-label" id="co2-compare">Starting out</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-icon">💧</div>
+      <div class="stat-tile-value" id="total-water">0</div>
+      <div class="stat-tile-unit">ml water proxy</div>
+      <div class="stat-tile-label" id="water-compare">Data center cooling estimate</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-icon">⚡</div>
+      <div class="stat-tile-value" id="total-energy">0.0</div>
+      <div class="stat-tile-unit">Wh energy</div>
+      <div class="stat-tile-label">Estimated inference energy</div>
+    </div>
+    <div class="stat-tile">
+      <div class="stat-tile-icon">🔢</div>
+      <div class="stat-tile-value" id="total-queries">0</div>
+      <div class="stat-tile-unit">queries tracked</div>
+      <div class="stat-tile-label" id="queries-compare">Across all platforms</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="chart-grid">
+    <div class="chart-card">
+      <div class="chart-card-title">📅 Daily CO₂ (last 14 days)</div>
+      <div class="chart-canvas-wrap">
+        <canvas id="co2Chart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">🤖 Platform breakdown</div>
+      <div class="platform-list" id="platform-list">
+        <div class="no-data">No data yet — start using AI tools!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real-world equivalents -->
+  <section class="equiv-section">
+    <div class="section-title">🌍 Real-world Equivalents</div>
+    <div class="equiv-cards">
+      <div class="equiv-card">
+        <div class="equiv-emoji">🚗</div>
+        <div class="equiv-value" id="equiv-drive">0m</div>
+        <div class="equiv-label">Driven in a petrol car</div>
+      </div>
+      <div class="equiv-card">
+        <div class="equiv-emoji">💡</div>
+        <div class="equiv-value" id="equiv-bulb">0s</div>
+        <div class="equiv-label">60W bulb running time</div>
+      </div>
+      <div class="equiv-card">
+        <div class="equiv-emoji">🌳</div>
+        <div class="equiv-value" id="equiv-tree">0s</div>
+        <div class="equiv-label">Tree absorbing for</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Achievements -->
+  <section class="achieve-section">
+    <div class="section-title">🏆 Achievements</div>
+    <div class="achievements-grid" id="achievements-grid"></div>
+  </section>
+
+  <!-- Tips -->
+  <section class="tips-section">
+    <div class="section-title">💡 Green AI Practices</div>
+    <div class="tips-grid" id="tips-grid"></div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    Impact estimates based on published research: Luccioni et al. (2023), Patterson et al. (2021), IEA (2024).<br>
+    Values are approximations for awareness, not scientific measurements. All data stored locally in your browser.<br>
+    <a href="https://arxiv.org/abs/2311.16863" target="_blank">Research basis ↗</a> ·
+    Built with privacy-first principles · No prompts ever collected
+  </footer>
+
+</div>
+
+
+<script src="dashboard.js"></script>
+</body>
+</html>
